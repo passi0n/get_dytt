@@ -61,7 +61,7 @@ except Exception, e:
 """
 
 # zabbix 帐号&密码
-username = "yunops"
+username = "username"
 password = "password"
 
 # zabbix 地址
@@ -228,8 +228,8 @@ if __name__ == '__main__':
                 # 创建邮件内容且保存图表至本地
                 msg = create_msg(opener)
                 # 发送邮件
-                account = "rgb123c@163.com"
-                password = "123456a"
+                account = "account@163.com"
+                password = "password"
                 send_mail("smtp.163.com", "25", account, password, str_from, list_to, msg)
                 logging.info('_____run end_____')
             time.sleep(sleep_time)
