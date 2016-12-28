@@ -32,40 +32,7 @@ import os, time
 import logging
 from logging.handlers import TimedRotatingFileHandler
 
-# 发件人
-str_from = "rgb123c@163.com"
-# 收件人
-list_to = ["51347294@qq.com", "keaili8@163.com"]
 
-
-# 初始化发信人地址
-def initListTo():
-    send_path = "mail.txt"
-    #print(send_path)
-    send_content = open(send_path).read()
-    list_to = send_content.split('|')
-    return list_to
-
-
-# 故障日志
-"""
-try:
-    log_path = "log.txt"
-    lines = open(log_path).readlines()
-    log_content = ''
-    for line in lines:
-        log_content += (line.decode('gbk').encode('utf8') + "<br/>")
-        # print(log_content)
-except Exception, e:
-    log_content = ''
-"""
-
-# zabbix 帐号&密码
-username = "username"
-password = "password"
-
-# zabbix 地址
-base_url = "http://100.127.112.1:8888"
 
 # 时间段
 time_interval = {
@@ -77,33 +44,69 @@ default_time_interval = time_interval["1d"]
 
 # 报表参数
 """
-入口总流量 1120,BGP出口流量 1466,联通流量 1415,CP流量 1114,Cache流量 1467,用户在线统计 1469
 r"%s/zabbix/chart2.php?graphid=1466&period=%s"%(base_url,default_time_interval)
 """
 params_config = [
-    {"id": "558", "name": "入口总流量", "file_name":"input"},
-    {"id": "557", "name": "综合出口总流量", "file_name":"output"},
-    {"id": "638", "name": "Cache流量", "file_name":"cache"},
-    {"id": "650", "name": "用户在线统计", "file_name":"users"},
+    {"id": "558", "name": "入口总流量", "file_name": "input"},
+    {"id": "557", "name": "综合出口总流量", "file_name": "output"},
+    {"id": "638", "name": "Cache流量", "file_name": "cache"},
+    {"id": "650", "name": "用户在线统计", "file_name": "users"},
 ]
 
+# zabbix 帐号&密码
+zabbix_username = "***"
+zabbix_password = "***"
+# zabbix 地址
+base_url = "http://100.127.112.1:8888"
+
+#mail账号&密码
+mail_account = "***"
+mail_password = "***"
+# 发件人
+str_from = "***"
+# 收件人
+list_to = ["51347294@qq.com"]
+
+# 初始化发信人地址
+def initListTo():
+    send_path = "mail.txt"
+    # print(send_path)
+    send_content = open(send_path).read()
+    list_to = send_content.split('|')
+    return list_to
 
 # 登陆
 def login():
+
     cj = http.cookiejar.CookieJar()
     pro = urllib.request.HTTPCookieProcessor(cj)
     opener = urllib.request.build_opener(pro)
-    url_login = r"%s/zabbix/index.php" % base_url
+    url_login = r"%s/zabbix/index.php" % (base_url)
+    print(url_login)
     postDict = {
-        "name": username,
-        "password": password,
+        "name": zabbix_username,
+        "password": zabbix_password,
         "autologin": 1,
         "enter": "Sign in"}
-    postData = urllib.parse.urlencode(postDict).encode()
-    response = opener.open(url_login, postData)
-    # content=response.read()
+    postData = urllib.parse.urlencode(postDict).encode(encoding='UTF8')
+    print(len(postData),postData)
+    headers = {
+        "Cache-Control":"max-age=0",
+        "Origin": "http://100.127.112.1:8888",
+        "Upgrade-Insecure-Requests": "1",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Encoding": "utf-8",
+        "Accept-Language": "zh-cn,zh;q=0.8,en-us;q=0.5,en;q=0.3",
+        "Connection": "keep-alive",
+        "Host": "100.127.112.1:8888",
+        "Referer": "http://100.127.112.1:8888/zabbix/index.php",
+        "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:32.0) Gecko/20100101 Firefox/32.0"
+    }
+    request=urllib.request.Request(url_login,data=postData,headers=headers)
+    response = opener.open(request)
+    #content = str(response.read())
+    #print(content)
     return opener
-
 
 # 保存图片
 def save_img(name, data):
@@ -122,14 +125,14 @@ def save_img(name, data):
 
 
 # 发送邮件
-def send_mail(smtp_server, port, account, password, str_from, list_to, msg):
+def send_mail(smtp_server, port, msg):
     # print(msg.as_string())
     smtp = smtplib.SMTP()
     (code, resp) = smtp.connect(smtp_server, port)
     # print("connect", code, resp)
-    (code, resp) = smtp.login(account, password)
+    (code, resp) = smtp.login(mail_account, mail_password)
     # print("login", code, resp)
-    print(list_to)
+    #print(list_to)
     smtp.sendmail(str_from, list_to, msg.as_string())
     smtp.close()
 
@@ -160,7 +163,7 @@ def create_msg(opener):
     for param in params_config:
         id = param["id"]
         name = param["name"]
-        file_name=param["file_name"]
+        file_name = param["file_name"]
         graph_url = r"%s/zabbix/chart2.php?graphid=%s&period=%s" % (base_url, id, default_time_interval)
         # print(id, graph_url)
         response = opener.open(graph_url)
@@ -216,21 +219,19 @@ if __name__ == '__main__':
 
         while True:
             date = datetime.datetime.now()
-            logging.info("%s___%d"%(date.strftime("%Y-%m-%d %H:%M:%S"),date.hour))
+            logging.info("%s___%d" % (date.strftime("%Y-%m-%d %H:%M:%S"), date.hour))
             if date.hour == 23:
                 # 截图发邮件
                 logging.info('_____run start_____')
                 # 初始化发信人地址
-                list_to=initListTo()
+                list_to = initListTo()
                 print(list_to)
                 # 登录zabbix
                 opener = login()
                 # 创建邮件内容且保存图表至本地
                 msg = create_msg(opener)
                 # 发送邮件
-                account = "account@163.com"
-                password = "password"
-                send_mail("smtp.163.com", "25", account, password, str_from, list_to, msg)
+                send_mail("smtp.163.com", "25", msg)
                 logging.info('_____run end_____')
             time.sleep(sleep_time)
     except Exception as e:
